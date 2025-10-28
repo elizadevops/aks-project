@@ -6,7 +6,7 @@ variable "resource_group_location" {
 
 variable "resource_group_name_prefix" {
   type        = string
-  default     = "rg"
+  default     = "rg-aks"
   description = "Prefix of the resource group name that's combined with a random ID so name is unique in your Azure subscription."
 }
 
@@ -16,14 +16,28 @@ variable "node_count" {
   default     = 1
 }
 
-variable "msi_id" {
-  type        = string
-  description = "The Managed Service Identity ID. Set this value if you're running this example using Managed Identity as the authentication method."
-  default     = null
+variable "node_min_count" {
+  type        = number
+  default     = 1
+}
+
+variable "node_max_count" {
+  type        = number
+  default     = 3
 }
 
 variable "username" {
   type        = string
   description = "The admin username for the new cluster."
-  default     = "azureadmin"
+  default     = "azureuser"
+}
+
+variable "available_zones" {
+  type    = list(string)
+  default = ["1", "2", "3"]
+}
+
+variable "tags" {
+  type        = map(string)
+  default     = { project = "nodejs-3tier", env = "dev" }
 }
