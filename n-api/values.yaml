@@ -1,0 +1,41 @@
+image:
+  repository: my-registry.example.com/myteam/web
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+readinessProbe:
+  path: /health
+  port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+livenessProbe:
+  path: /health
+  port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+
+envFrom:
+  configMap: myservice-config   # name will be templated
+  secret: myservice-secret     # name will be templated
