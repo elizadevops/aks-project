@@ -1,0 +1,19 @@
+image:
+repository: mysql
+tag: "8.0"
+pullPolicy: IfNotPresent
+
+
+mysql:
+database: appdb
+user: Kaizen
+password: Kaizen123
+rootPassword: rootpass
+
+
+storage:
+size: 10Gi
+storageClassName: default
+
+
+resources: {}

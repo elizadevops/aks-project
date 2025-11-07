@@ -1,0 +1,20 @@
+image:
+  repository: elizadevopsacr.azurecr.io/api
+  tag: v1
+  pullPolicy: IfNotPresent
+service:
+  type: LoadBalancer
+  port: 3001
+  targetPort: 3001
+env:
+  DB_HOST: "mysql" 
+  DB_NAME: "appdb"
+  DB_USER: "appuser"
+secret:
+  DB_PASSWORD: "change-me"
+resources: {}
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
