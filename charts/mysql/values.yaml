@@ -1,19 +1,17 @@
 image:
-repository: mysql
-tag: "8.0"
-pullPolicy: IfNotPresent
+  repository: mysql
+  tag: "8.0"
+  pullPolicy: IfNotPresent
 
-
-mysql:
-database: appdb
-user: Kaizen
-password: Kaizen123
-rootPassword: rootpass
-
+auth:
+  rootPassword: "RootPass123!"
+  user: "appuser"
+  password: "Kaizen123"
+  database: "appdb"
 
 storage:
-size: 10Gi
-storageClassName: default
+  size: 5Gi
+  className: ""  # можно оставить пустым или указать существующий StorageClass
 
-
-resources: {}
+service:
+  port: 3306

@@ -2,17 +2,22 @@ image:
   repository: elizadevopsacr.azurecr.io/api
   tag: v1
   pullPolicy: IfNotPresent
+
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 3001
   targetPort: 3001
+
 env:
-  DB_HOST: "mysql" 
+  DB_HOST: "mysql"        # так будет называться сервис MySQL-чарта
   DB_NAME: "appdb"
   DB_USER: "appuser"
+
 secret:
-  DB_PASSWORD: "change-me"
+  DB_PASSWORD: "Kaizen123"
+
 resources: {}
+
 autoscaling:
   enabled: true
   minReplicas: 1

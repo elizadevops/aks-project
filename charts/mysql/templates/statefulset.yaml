@@ -1,30 +1,47 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mysql
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
 spec:
-  serviceName: mysql
+  serviceName: {{ .Release.Name }}
   replicas: 1
   selector:
-    matchLabels: { app: mysql }
+    matchLabels:
+      app: {{ .Release.Name }}
   template:
     metadata:
-      labels: { app: mysql }
+      labels:
+        app: {{ .Release.Name }}
     spec:
       containers:
         - name: mysql
-          image: mysql:8.0
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secret
+                  key: MYSQL_PASSWORD
           ports:
             - containerPort: 3306
-          env:
-            - name: MYSQL_DATABASE
-              value: "{{ .Values.mysql.database }}"
-            - name: MYSQL_USER
-              value: "{{ .Values.mysql.user }}"
-            - name: MYSQL_PASSWORD
-              value: "{{ .Values.mysql.password }}"
-            - name: MYSQL_ROOT_PASSWORD
-              value: "rootpass"
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
@@ -33,7 +50,9 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: "{{ .Values.storage.storageClassName }}"
         resources:
           requests:
-            storage: "{{ .Values.storage.size }}"
+            storage: {{ .Values.storage.size }}
+        {{- if .Values.storage.className }}
+        storageClassName: {{ .Values.storage.className }}
+        {{- end }}

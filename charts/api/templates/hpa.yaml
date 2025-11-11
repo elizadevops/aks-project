@@ -1,20 +1,11 @@
-{{- if .Values.autoscaling.enabled }}
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+{{- if .Values.secret.DB_PASSWORD }}
+apiVersion: v1
+kind: Secret
 metadata:
-  name: api-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: api-deployment
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
-  metrics:
-- type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+  name: {{ .Release.Name }}-secret
+  labels:
+    app: {{ .Release.Name }}
+type: Opaque
+stringData:
+  DB_PASSWORD: {{ .Values.secret.DB_PASSWORD | quote }}
 {{- end }}

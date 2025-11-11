@@ -1,87 +1,105 @@
-var express = require('express');
-var app = express();
-var uuid = require('node-uuid');
-var mysql = require('mysql2');
+const express = require('express');
+const mysql = require('mysql2');
 
-// MySQL connection configuration
-const conString = {
-    user: process.env.DBUSER,
-    database: process.env.DB,
-    password: process.env.DBPASS,
-    host: process.env.DBHOST,
-    port: process.env.DBPORT
+const app = express();
+
+// MySQL конфигурация через переменные окружения (совпадает с Kubernetes)
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 };
 
-var pool = mysql.createPool(conString);
+const pool = mysql.createPool(dbConfig);
 
-// health checks
-app.get('/healthz', (req, res) => res.send('ok'));
-app.get('/readyz',  (req, res) => res.send('ready'));
-
-// корень API (удобно для проверки)
-app.get('/', (req, res) => {
-  res.json({ ok: true, name: 'n-api', ts: new Date().toISOString() });
-});
-
-// пример "статус"
-app.get('/status', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-
-// Health check endpoint
-app.get('/health', function(req, res) {
-  res.status(200).send('OK');
-});
-
-// Routes
-app.get('/api/status', function(req, res) {
-  // connection using created pool
+// helper для проверки готовности базы
+function checkDbConnection(callback) {
   pool.getConnection((err, connection) => {
-    if (err) {
-      return console.error('Error acquiring client', err.stack);
-    }
-    connection.query('SELECT NOW() AS time', (err, result) => {
+    if (err) return callback(err);
+
+    connection.ping(pingErr => {
       connection.release();
-      if (err) {
-        console.log(err);
-        return console.error('Error executing query', err.stack);
-      }
-      res.status(200).send(result);
-    });
-  });
-});
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
-});
-
-// error handlers
-
-// development error handler
-// will print stacktrace
-if (app.get('env') === 'development') {
-  app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
-    res.json({
-      message: err.message,
-      error: err
+      callback(pingErr);
     });
   });
 }
 
-// production error handler
-// no stacktraces leaked to user
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.json({
-    message: err.message,
-    error: {}
+// 🔹 Liveness probe — просто проверяет, жив ли контейнер
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// 🔹 Альтернативный liveness endpoint
+app.get('/healthz', (req, res) => {
+  res.status(200).send('ok');
+});
+
+// 🔹 Readiness probe — проверяет, готово ли приложение (включая БД)
+app.get('/readyz', (req, res) => {
+  checkDbConnection(err => {
+    if (err) {
+      console.error('DB not ready:', err.message);
+      return res.status(500).json({ status: 'error', message: 'DB not ready' });
+    }
+    res.status(200).json({ status: 'ready' });
+  });
+});
+
+// Корневой роут для быстрой проверки
+app.get('/', (req, res) => {
+  res.json({ ok: true, name: 'n-api', ts: new Date().toISOString() });
+});
+
+// Простой статус без обращения к БД
+app.get('/status', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Статус с проверкой БД
+app.get('/api/status', (req, res) => {
+  pool.query('SELECT NOW() AS time', (err, rows) => {
+    if (err) {
+      console.error('Error executing query', err);
+      return res.status(500).json({ error: 'DB query failed' });
+    }
+    res.status(200).json({
+      status: 'ok',
+      dbTime: rows[0].time,
+    });
+  });
+});
+
+// 404 — если маршрут не найден
+app.use((req, res, next) => {
+  const err = new Error('Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// Dev error handler — со стеком
+if (app.get('env') === 'development') {
+  app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+
+    res.status(err.status || 500).json({
+      message: err.message,
+      stack: err.stack,
+    });
+  });
+}
+
+// Prod error handler — без стека
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
   });
 });
 
 module.exports = app;
-

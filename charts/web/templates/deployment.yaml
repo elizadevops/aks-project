@@ -1,29 +1,25 @@
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-deployment
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: web
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: web
+        app: {{ .Release.Name }}
     spec:
       containers:
-- name: web
+        - name: web
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-- containerPort: {{ .Values.service.targetPort }}
+            - containerPort: {{ .Values.service.targetPort }}
           env:
-- name: API_URL
-              value: "{{ .Values.env.API_URL }}"
-          readinessProbe:
-            httpGet:
-              path: /
-              port: {{ .Values.service.targetPort }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            - name: API_URL
+              value: {{ .Values.env.API_URL | quote }}

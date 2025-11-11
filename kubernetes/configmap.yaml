@@ -1,16 +1,24 @@
+# ========== API CONFIG ==========
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-config
 data:
   NODE_ENV: "production"
-  # Добавь любые не-секретные настройки API тут
+
+  # Нестрого секретные настройки БД
+  DB_HOST: "mysql-service.default.svc.cluster.local"
+  DB_NAME: "appdb"
+  DB_PORT: "3306"
+
 ---
+# ========== WEB CONFIG ==========
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: web-config
 data:
   NODE_ENV: "production"
-  # Фронт должен брать адрес API из переменной окружения
-  API_BASE_URL: "http://api-service.default.svc.cluster.local:3001"
+
+  # Адрес API для фронта через сервис Kubernetes
+  API_HOST: "http://api-service:3000"

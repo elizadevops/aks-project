@@ -1,35 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-deployment
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
 spec:
+  replicas: 1
   selector:
-    matchLabels: { app: api }
+    matchLabels:
+      app: {{ .Release.Name }}
   template:
     metadata:
-      labels: { app: api }
+      labels:
+        app: {{ .Release.Name }}
     spec:
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.targetPort }}
           env:
             - name: DB_HOST
-              value: "{{ .Values.env.DB_HOST }}"
+              value: {{ .Values.env.DB_HOST | quote }}
             - name: DB_NAME
-              value: "{{ .Values.env.DB_NAME }}"
+              value: {{ .Values.env.DB_NAME | quote }}
             - name: DB_USER
-              value: "{{ .Values.env.DB_USER }}"
+              value: {{ .Values.env.DB_USER | quote }}
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: api-secret
+                  name: {{ .Release.Name }}-secret
                   key: DB_PASSWORD
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: {{ .Values.service.targetPort }}
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
