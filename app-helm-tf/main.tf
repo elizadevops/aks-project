@@ -21,22 +21,18 @@ provider "helm" {
   }
 }
 
-variable "kubeconfig_path" {
-  type = string
-}
-
 resource "helm_release" "api" {
-  name       = "api"
-  chart      = "../charts/api"
-  namespace  = "default"
-  timeout    = 300
-  wait       = true
+  name      = "api"
+  chart     = "../charts/api"
+  namespace = "default"
+  wait      = true
+  timeout   = 300
 }
 
 resource "helm_release" "web" {
-  name       = "web"
-  chart      = "../charts/web"
-  namespace  = "default"
-  timeout    = 300
-  wait       = true
+  name      = "web"
+  chart     = "../charts/web"
+  namespace = "default"
+  wait      = true
+  timeout   = 300
 }

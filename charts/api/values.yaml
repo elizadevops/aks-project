@@ -9,7 +9,7 @@ service:
   targetPort: 3001
 
 env:
-  DB_HOST: "mysql"        # так будет называться сервис MySQL-чарта
+  DB_HOST: "mysql"
   DB_NAME: "appdb"
   DB_USER: "appuser"
 
