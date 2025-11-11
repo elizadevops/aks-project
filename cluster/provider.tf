@@ -20,8 +20,6 @@ terraform {
 provider "azurerm" {
   features {}
 
-  # Если используешь az login — эти поля можно не указывать.
-  # Иначе передай через variables.tfvars или переменные окружения.
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
 }

@@ -1,7 +1,3 @@
-############################
-# Базовая инфраструктура
-############################
-
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
@@ -22,16 +18,14 @@ resource "azurerm_subnet" "nodes" {
 
 }
 
-############################
 # AKS кластер
-############################
 
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = var.cluster_name
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
-  # Рекомендуется указывать минорную версию (например, "1.30")
+
   kubernetes_version  = var.kubernetes_version
   dns_prefix          = var.dns_prefix
 
@@ -39,15 +33,15 @@ resource "azurerm_kubernetes_cluster" "aks" {
     type = "SystemAssigned"
   }
 
-  # Встроенный RBAC + OIDC (для будущих workload identity)
+ 
   role_based_access_control_enabled = true
   oidc_issuer_enabled               = true
 
-  # Профиль сети AKS (Azure CNI)
+  
   network_profile {
   network_plugin = "azure"
   service_cidr   = "10.200.0.0/16"
-  dns_service_ip = "10.200.0.10"  # внутри service_cidr — всё ок
+  dns_service_ip = "10.200.0.10"  
   }
 
 
@@ -71,7 +65,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   lifecycle {
     ignore_changes = [
-      # Чтобы не дёргался при минорных автопатчах
+      
       kubernetes_version,
       default_node_pool[0].orchestrator_version
     ]

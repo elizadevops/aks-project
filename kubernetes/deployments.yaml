@@ -74,7 +74,7 @@ spec:
     - name: http
       port: 3000
       targetPort: 3000
-  type: ClusterIP          # внутри кластера, web ходит сюда
+  type: ClusterIP          
 
 ---
 # ========== WEB DEPLOYMENT ==========
@@ -116,7 +116,7 @@ spec:
               value: "3000"
             - name: HOST
               value: "0.0.0.0"
-            - name: API_HOST         # ✅ говорим фронту, куда стучаться
+            - name: API_HOST         
               value: "http://api-service:3000"
           readinessProbe:
             httpGet:
@@ -155,4 +155,4 @@ spec:
     - name: http
       port: 80
       targetPort: 3000
-  type: LoadBalancer        # внешний IP для браузера
+  type: LoadBalancer        

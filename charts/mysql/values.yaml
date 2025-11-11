@@ -11,7 +11,7 @@ auth:
 
 storage:
   size: 5Gi
-  className: ""  # можно оставить пустым или указать существующий StorageClass
+  className: "" 
 
 service:
   port: 3306

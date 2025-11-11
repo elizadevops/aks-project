@@ -6,13 +6,13 @@ metadata:
 data:
   NODE_ENV: "production"
 
-  # Нестрого секретные настройки БД
+  
   DB_HOST: "mysql-service.default.svc.cluster.local"
   DB_NAME: "appdb"
   DB_PORT: "3306"
 
 ---
-# ========== WEB CONFIG ==========
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -20,5 +20,5 @@ metadata:
 data:
   NODE_ENV: "production"
 
-  # Адрес API для фронта через сервис Kubernetes
+
   API_HOST: "http://api-service:3000"
