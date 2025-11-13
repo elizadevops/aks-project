@@ -26,46 +26,46 @@ resource "azurerm_kubernetes_cluster" "aks" {
   resource_group_name = azurerm_resource_group.rg.name
 
 
-  kubernetes_version  = var.kubernetes_version
-  dns_prefix          = var.dns_prefix
+  kubernetes_version = var.kubernetes_version
+  dns_prefix         = var.dns_prefix
 
   identity {
     type = "SystemAssigned"
   }
 
- 
+
   role_based_access_control_enabled = true
   oidc_issuer_enabled               = true
 
-  
+
   network_profile {
-  network_plugin = "azure"
-  service_cidr   = "10.200.0.0/16"
-  dns_service_ip = "10.200.0.10"  
+    network_plugin = "azure"
+    service_cidr   = "10.200.0.0/16"
+    dns_service_ip = "10.200.0.10"
   }
 
 
   default_node_pool {
-    name           = "sysnp"
-    vm_size        = var.node_size
-    node_count     = var.node_count
-    vnet_subnet_id = azurerm_subnet.nodes.id
-    type           = "VirtualMachineScaleSets"
+    name                         = "sysnp"
+    vm_size                      = var.node_size
+    node_count                   = var.node_count
+    vnet_subnet_id               = azurerm_subnet.nodes.id
+    type                         = "VirtualMachineScaleSets"
     only_critical_addons_enabled = false
     orchestrator_version         = var.kubernetes_version
     os_disk_type                 = "Managed"
   }
 
   linux_profile {
-  admin_username = "azureuser"
-  ssh_key {
-    key_data = trimspace(tls_private_key.ssh_key.public_key_openssh)
+    admin_username = "azureuser"
+    ssh_key {
+      key_data = trimspace(tls_private_key.ssh_key.public_key_openssh)
+    }
   }
-}
 
   lifecycle {
     ignore_changes = [
-      
+
       kubernetes_version,
       default_node_pool[0].orchestrator_version
     ]
