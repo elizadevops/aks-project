@@ -1,18 +1,9 @@
-image:
-  repository: elizadevopsacr.azurecr.io/api
-  tag: "v1"              
-  pullPolicy: IfNotPresent
+mysql:
+  database: "appdb"
+  user: "appuser"
+  password: "Kaizen123"
+  rootPassword: "RootPass123!"
 
-service:
-  type: ClusterIP
-  port: 3001
-  targetPort: 3001
-
-env:
-  DB_HOST: "mysql"
-  DB_NAME: "appdb"
-  DB_USER: "appuser"
-
-existingSecret: "api-secret"
-
-secret: {}
+storage:
+  size: "10Gi"
+  storageClassName: "default"

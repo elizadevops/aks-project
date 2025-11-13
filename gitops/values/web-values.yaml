@@ -1,6 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/web
-  tag: "v2"                # CI (Jenkins/GitHub Actions) будет менять
+  tag: "v1"                 # CI/Jenkins будут менять
   pullPolicy: IfNotPresent
 
 service:

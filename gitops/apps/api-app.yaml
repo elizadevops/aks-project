@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git
+    repoURL: https://github.com/elizadevops/aks-project.git
     targetRevision: main
     path: charts/api
     helm:
