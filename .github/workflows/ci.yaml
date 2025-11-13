@@ -67,12 +67,12 @@ jobs:
           helm lint charts/mysql || true
 
           cd mysql-helm-tf
-          terraform init -backend=false
+          terraform init -backend=false -upgrade
           terraform fmt -check
           terraform validate || true
 
           cd ../app-helm-tf
-          terraform init -backend=false
+          terraform init -backend=false -upgrade
           terraform fmt -check
           terraform validate || true
 
