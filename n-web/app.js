@@ -17,7 +17,7 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Web service is up!');
+  res.send('Web service is up! Deployed via ArgoCD' );
 });
 
 app.use((req, res) => {
