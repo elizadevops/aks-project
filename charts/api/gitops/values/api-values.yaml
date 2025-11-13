@@ -1,0 +1,4 @@
+image:
+  repository: elizadevopsacr.azurecr.io/api
+  tag: "latest"
+
