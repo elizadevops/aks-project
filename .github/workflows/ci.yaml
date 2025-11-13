@@ -7,7 +7,7 @@ on:
 
 # Глобальные переменные окружения — только простые строки
 env:
-  ACR_NAME: elizadevopsacr
+  ACR_NAME: elizedevopsacr
   WEB_IMAGE: elizadevopsacr.azurecr.io/web
   API_IMAGE: elizadevopsacr.azurecr.io/api
 
@@ -59,19 +59,23 @@ jobs:
             -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
-      # Helm & Terraform checks (с init -backend=false)
-      - name: Helm & Terraform checks
+      # ✅ Helm lint + Terraform init/fmt/validate в нужных папках
+      - name: Helm lint
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
 
-          cd mysql-helm-tf
+      - name: Terraform fmt & validate (mysql-helm-tf)
+        working-directory: mysql-helm-tf
+        run: |
           terraform init -backend=false -upgrade
           terraform fmt -check
           terraform validate || true
 
-          cd ../app-helm-tf
+      - name: Terraform fmt & validate (app-helm-tf)
+        working-directory: app-helm-tf
+        run: |
           terraform init -backend=false -upgrade
           terraform fmt -check
           terraform validate || true
