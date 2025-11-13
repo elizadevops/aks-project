@@ -26,9 +26,9 @@ variable "kubeconfig_path" {
 }
 
 resource "helm_release" "mysql" {
-  name       = "mysql"
-  chart      = "../charts/mysql"
-  namespace  = "default"
-  timeout    = 300
-  wait       = true
+  name      = "mysql"
+  chart     = "../charts/mysql"
+  namespace = "default"
+  timeout   = 300
+  wait      = true
 }
