@@ -1,0 +1,3 @@
+image:
+  repository: elizadevopsacr.azurecr.io/mysql
+  tag: "latest"
