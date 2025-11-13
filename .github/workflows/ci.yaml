@@ -5,21 +5,17 @@ on:
     branches: [ main ]
   pull_request:
 
-# 🔹 Верхний env — только простые строки, БЕЗ ${{ env.* }}
+# Глобальные переменные окружения — ТОЛЬКО простые значения, без ${{ }}
 env:
   ACR_NAME: elizadevopsacr
-  ACR_LOGIN: elizadevopsacr.azurecr.io
+  WEB_IMAGE: elizadevopsacr.azurecr.io/web
+  API_IMAGE: elizadevopsacr.azurecr.io/api
 
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
-    # 🔹 Здесь уже можно использовать ${{ env.ACR_LOGIN }}
-    env:
-      WEB_IMAGE: ${{ env.ACR_LOGIN }}/web
-      API_IMAGE: ${{ env.ACR_LOGIN }}/api
 
     steps:
       - name: Checkout
@@ -78,7 +74,7 @@ jobs:
 
       - name: Update GitOps values
         run: |
-          # IMAGE_TAG уже есть в env из $GITHUB_ENV
+          # IMAGE_TAG подхватится из $GITHUB_ENV
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/api-values.yaml
 
