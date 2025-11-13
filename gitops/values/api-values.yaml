@@ -1,6 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/api
-  tag: "v1"                 # CI будет менять
+  tag: "v1"               
   pullPolicy: IfNotPresent
 
 service:
@@ -13,7 +13,7 @@ env:
   DB_NAME: "appdb"
   DB_USER: "appuser"
 
-# если чарт умеет работать с существующим секретом:
+
 existingSecret: "api-secret"
 
 secret: {}
