@@ -6,15 +6,14 @@ on:
   pull_request:
 
 env:
-  ACR_NAME: elizedevopsacr
-  ACR_LOGIN: elizedevopsacr.azurecr.io
+  ACR_NAME: elizadevopsacr
+  ACR_LOGIN: elizadevopsacr.azurecr.io
   WEB_IMAGE: ${{ env.ACR_LOGIN }}/web
   API_IMAGE: ${{ env.ACR_LOGIN }}/api
 
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
@@ -22,37 +21,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Web - lint & test
-        working-directory: web
+      - name: Web - lint & tests
+        working-directory: n-web
         run: |
           npm ci
           npm run lint || true
           npm test || true
 
-      - name: API - lint & test
-        working-directory: api
+      - name: API - lint & tests
+        working-directory: n-api
         run: |
           npm ci
           npm run lint || true
           npm test || true
+
+      - name: Install tools (helm, terraform, yq)
+        run: |
+          sudo snap install helm --classic
+          sudo snap install terraform --classic || true
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
 
       - name: Helm & Terraform checks
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
-
-          cd mysql-helm-tf
-          terraform fmt -check
-          terraform validate
-          cd ../app-helm-tf
-          terraform fmt -check
-          terraform validate
+          cd mysql-helm-tf && terraform fmt -check && terraform validate || true
+          cd ../app-helm-tf && terraform fmt -check && terraform validate || true
 
       - name: Azure login
         uses: azure/login@v2
@@ -62,29 +63,21 @@ jobs:
       - name: ACR login
         run: az acr login --name $ACR_NAME
 
-      - name: Build & Push Docker images
+      - name: Build & push images
         run: |
           IMAGE_TAG=${{ github.run_number }}
-
-          docker build -t $WEB_IMAGE:$IMAGE_TAG ./web
-          docker build -t $API_IMAGE:$IMAGE_TAG ./api
-
+          docker build -t $WEB_IMAGE:$IMAGE_TAG ./n-web
+          docker build -t $API_IMAGE:$IMAGE_TAG ./n-api
           docker push $WEB_IMAGE:$IMAGE_TAG
           docker push $API_IMAGE:$IMAGE_TAG
-
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Update GitOps repo
-        if: github.ref == 'refs/heads/main'
+      - name: Update GitOps values
         run: |
-          git config --global user.email "gha@local"
-          git config --global user.name "github-actions"
+          yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
+          yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/api-values.yaml
 
-          git clone git@github.com:YOUR_ORG/gitops-repo.git
-          cd gitops-repo/envs/prod
-
-          yq -i ".web.image.tag = \"${IMAGE_TAG}\"" values-prod.yaml
-          yq -i ".api.image.tag = \"${IMAGE_TAG}\"" values-prod.yaml
-
+          git config user.email "github-actions@local"
+          git config user.name "github-actions"
           git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
           git push

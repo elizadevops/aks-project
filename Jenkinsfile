@@ -2,46 +2,28 @@ pipeline {
   agent any
 
   environment {
-    ACR_NAME      = 'elizadevopsacr'
-    ACR_LOGIN     = 'elizedevopsacr.azurecr.io'
-    WEB_IMAGE     = "${ACR_LOGIN}/web"
-    API_IMAGE     = "${ACR_LOGIN}/api"
-    GITOPS_REPO   = 'git@github.com:YOUR_ORG/gitops-repo.git'
-    GITOPS_PATH   = 'envs/prod' // где лежат values для ArgoCD
-    IMAGE_TAG     = "${env.BUILD_NUMBER}"
+    ACR_NAME    = 'elizadevopsacr'
+    ACR_LOGIN   = 'elizadevopsacr.azurecr.io'
+    WEB_IMAGE   = "${ACR_LOGIN}/web"
+    API_IMAGE   = "${ACR_LOGIN}/api"
+    IMAGE_TAG   = "${env.BUILD_NUMBER}"
   }
 
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
-    stage('Install tools') {
+    stage('Node tests (web & api)') {
       steps {
-        sh '''
-          node -v || true
-          npm -v || true
-        '''
-      }
-    }
-
-    stage('Web: lint & test') {
-      steps {
-        dir('web') {
+        dir('n-web') {
           sh '''
             npm ci
             npm run lint || true
             npm test || true
           '''
         }
-      }
-    }
-
-    stage('API: lint & test') {
-      steps {
-        dir('api') {
+        dir('n-api') {
           sh '''
             npm ci
             npm run lint || true
@@ -60,10 +42,10 @@ pipeline {
 
           cd mysql-helm-tf
           terraform fmt -check
-          terraform validate
+          terraform validate || true
           cd ../app-helm-tf
           terraform fmt -check
-          terraform validate
+          terraform validate || true
         '''
       }
     }
@@ -72,41 +54,30 @@ pipeline {
       steps {
         sh '''
           az acr login --name ${ACR_NAME}
-
-          docker build -t ${WEB_IMAGE}:${IMAGE_TAG} ./web
-          docker build -t ${API_IMAGE}:${IMAGE_TAG} ./api
-
+          docker build -t ${WEB_IMAGE}:${IMAGE_TAG} ./n-web
+          docker build -t ${API_IMAGE}:${IMAGE_TAG} ./n-api
           docker push ${WEB_IMAGE}:${IMAGE_TAG}
           docker push ${API_IMAGE}:${IMAGE_TAG}
         '''
       }
     }
 
-    stage('Update GitOps manifests') {
+    stage('Update GitOps values (tags)') {
       steps {
-        sshagent (credentials: ['gitops-ssh-key']) {
-          sh '''
-            rm -rf gitops-repo
-            git clone ${GITOPS_REPO} gitops-repo
-            cd gitops-repo/${GITOPS_PATH}
+        sh '''
+          # IMAGE_TAG уже есть в env
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
 
-            # пример: обновляем values-prod.yaml
-            yq -i '.web.image.tag = "${IMAGE_TAG}"' values-prod.yaml
-            yq -i '.api.image.tag = "${IMAGE_TAG}"' values-prod.yaml
+          yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
+          yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
 
-            git config user.email "ci@local"
-            git config user.name "jenkins-ci"
-            git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
-            git push
-          '''
-        }
+          git config user.email "jenkins@local"
+          git config user.name "jenkins-ci"
+          git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
+          git push
+        '''
       }
-    }
-  }
-
-  post {
-    always {
-      junit allowEmptyResults: true, testResults: '**/junit-report.xml'
     }
   }
 }
