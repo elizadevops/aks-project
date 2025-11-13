@@ -7,7 +7,7 @@ on:
 
 # Глобальные переменные окружения — только простые строки
 env:
-  ACR_NAME: elizedevopsacr
+  ACR_NAME: elizadevopsacr
   WEB_IMAGE: elizadevopsacr.azurecr.io/web
   API_IMAGE: elizadevopsacr.azurecr.io/api
 
@@ -59,26 +59,23 @@ jobs:
             -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
-      # ✅ Helm lint + Terraform init/fmt/validate в нужных папках
+      # ✅ Helm lint
       - name: Helm lint
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
 
-      - name: Terraform fmt & validate (mysql-helm-tf)
+      # ✅ Только terraform fmt (без validate), чтобы не требовать провайдеры в CI
+      - name: Terraform fmt (mysql-helm-tf)
         working-directory: mysql-helm-tf
         run: |
-          terraform init -backend=false -upgrade
           terraform fmt -check
-          terraform validate || true
 
-      - name: Terraform fmt & validate (app-helm-tf)
+      - name: Terraform fmt (app-helm-tf)
         working-directory: app-helm-tf
         run: |
-          terraform init -backend=false -upgrade
           terraform fmt -check
-          terraform validate || true
 
       - name: Azure login
         uses: azure/login@v2
