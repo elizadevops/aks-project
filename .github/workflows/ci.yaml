@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
 
-# Глобальные переменные окружения — ТОЛЬКО простые значения, без ${{ }}
+# Глобальные переменные окружения — только простые строки
 env:
   ACR_NAME: elizadevopsacr
   WEB_IMAGE: elizadevopsacr.azurecr.io/web
@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: '18'
 
+      # Web: lint & tests
       - name: Web - lint & tests
         working-directory: n-web
         run: |
@@ -33,6 +34,7 @@ jobs:
           npm run lint || true
           npm test || true
 
+      # API: lint & tests
       - name: API - lint & tests
         working-directory: n-api
         run: |
@@ -40,20 +42,39 @@ jobs:
           npm run lint || true
           npm test || true
 
-      - name: Install tools (helm, terraform, yq)
+      # ✅ Terraform из официального setup-terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      # ✅ Helm через официальный setup-helm action
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      # ✅ yq через бинарник
+      - name: Install yq
         run: |
-          sudo snap install helm --classic
-          sudo snap install terraform --classic || true
-          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
+      # Helm & Terraform checks (с init -backend=false)
       - name: Helm & Terraform checks
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
-          cd mysql-helm-tf && terraform fmt -check && terraform validate || true
-          cd ../app-helm-tf && terraform fmt -check && terraform validate || true
+
+          cd mysql-helm-tf
+          terraform init -backend=false
+          terraform fmt -check
+          terraform validate || true
+
+          cd ../app-helm-tf
+          terraform init -backend=false
+          terraform fmt -check
+          terraform validate || true
 
       - name: Azure login
         uses: azure/login@v2
