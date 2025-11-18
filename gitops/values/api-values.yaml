@@ -1,19 +1,15 @@
 image:
   repository: elizadevopsacr.azurecr.io/api
-  tag: "v1"                 # CI/Jenkins будут менять
+  tag: "27" # CI/Jenkins будут менять
   pullPolicy: IfNotPresent
-
 service:
   type: ClusterIP
   port: 3001
   targetPort: 3001
-
 env:
   DB_HOST: "mysql"
   DB_NAME: "appdb"
   DB_USER: "appuser"
-
 # у тебя уже есть секрет api-secret → чарт должен уметь его использовать
 existingSecret: "api-secret"
-
 secret: {}
