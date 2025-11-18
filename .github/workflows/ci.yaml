@@ -5,28 +5,33 @@ on:
     branches: [ main ]
   pull_request:
 
-# Глобальные переменные окружения — только простые строки
+# Глобальные переменные окружения
 env:
   ACR_NAME: elizadevopsacr
-  WEB_IMAGE: elizadevopsacr.azurecr.io/web
-  API_IMAGE: elizadevopsacr.azurecr.io/api
+  ACR_LOGIN: elizadevopsacr.azurecr.io
+  WEB_IMAGE: ${{ env.ACR_LOGIN }}/web
+  API_IMAGE: ${{ env.ACR_LOGIN }}/api
 
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write   # нужно для git commit + push
 
     steps:
+      # 1. Клонируем репозиторий с полной историей (нужно для push)
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 2. Node.js для web и api
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # Web: lint & tests
+      # 3. Web: lint + tests
       - name: Web - lint & tests
         working-directory: n-web
         run: |
@@ -34,7 +39,7 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # API: lint & tests
+      # 4. API: lint + tests
       - name: API - lint & tests
         working-directory: n-api
         run: |
@@ -42,72 +47,78 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # ✅ Terraform из официального setup-terraform
+      # 5. Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # ✅ Helm через официальный setup-helm action
+      # 6. Helm
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      # ✅ yq через бинарник
+      # 7. yq для правки values.yaml
       - name: Install yq
         run: |
           sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
             -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
-      # ✅ Helm lint
+      # 8. Helm lint для всех чартов
       - name: Helm lint
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
 
-      # ✅ Только terraform fmt (без validate), чтобы не требовать провайдеры в CI
+      # 9. Terraform fmt (mysql-helm-tf)
       - name: Terraform fmt (mysql-helm-tf)
         working-directory: mysql-helm-tf
         run: |
           terraform fmt -check
 
+      # 10. Terraform fmt (app-helm-tf)
       - name: Terraform fmt (app-helm-tf)
         working-directory: app-helm-tf
         run: |
           terraform fmt -check
 
+      # 11. Логин в Azure (вариант с JSON-секретом AZURE_CREDENTIALS)
+      # secrets.AZURE_CREDENTIALS должен содержать JSON сервис-принципала
       - name: Azure login
         uses: azure/login@v2
         with:
-          auth-type: SERVICE_PRINCIPAL
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: false
-          environment: azurecloud
-          allow-no-subscriptions: false
-          audience: api://AzureADTokenExchange
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # 12. Логин в ACR
       - name: ACR login
         run: az acr login --name $ACR_NAME
 
+      # 13. Сборка и push Docker-образов web и api
       - name: Build & push images
         run: |
-          IMAGE_TAG=${{ github.run_number }}
+          IMAGE_TAG=${GITHUB_RUN_NUMBER}
+
           docker build -t $WEB_IMAGE:$IMAGE_TAG ./n-web
           docker build -t $API_IMAGE:$IMAGE_TAG ./n-api
+
           docker push $WEB_IMAGE:$IMAGE_TAG
           docker push $API_IMAGE:$IMAGE_TAG
+
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
+      # 14. Обновляем GitOps values, чтобы ArgoCD задеплоил новый тег
       - name: Update GitOps values
         run: |
-          # IMAGE_TAG подхватится из $GITHUB_ENV
+          echo "Using image tag: ${IMAGE_TAG}"
+
+          # Обновляем теги образов в GitOps values
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/api-values.yaml
 
           git config user.email "github-actions@local"
           git config user.name "github-actions"
+          git status
+
           git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
           git push
