@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # нужен полный git-лог для rebase в других job'ах
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -90,8 +90,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # пусть тоже будет полный git, на всякий случай
 
-      # Логин в Azure (через сервис-принципал)
+      # Логин в Azure (через сервис-принципал, JSON в AZURE_CREDENTIALS)
       - name: Azure login
         uses: azure/login@v2
         with:
@@ -136,6 +138,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Подготовка git перед коммитом (чтобы не было non-fast-forward)
+      - name: Prepare repo before commit
+        run: |
+          git config user.email "github-actions@local"
+          git config user.name "github-actions"
+          git fetch origin main
+          git pull --rebase origin main
+
       # yq для правки values.yaml
       - name: Install yq
         run: |
@@ -153,9 +163,7 @@ jobs:
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/api-values.yaml
 
-          git config user.email "github-actions@local"
-          git config user.name "github-actions"
-
           git status
-          git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
-          git push
+          git add gitops/values/web-values.yaml gitops/values/api-values.yaml
+          git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes"
+          git push origin HEAD:main
