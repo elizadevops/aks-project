@@ -113,4 +113,5 @@ pipeline {
       }
     }
 
-}
+  } // <-- конец блока stages
+}   // <-- конец pipeline
