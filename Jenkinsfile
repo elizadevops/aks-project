@@ -85,25 +85,32 @@ pipeline {
 
     stage('Update GitOps values (tags)') {
       steps {
-        sh '''
-          # Всегда работаем с веткой main, а не detached HEAD
-          git fetch origin
-          git checkout -B main origin/main
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'github-elizadevops-token',
+            usernameVariable: 'GIT_USER',
+            passwordVariable: 'GIT_TOKEN'
+          )
+        ]) {
+          sh '''
+            git fetch origin
+            git checkout -B main origin/main
 
-          # Обновляем только values-файлы
-          yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
-          yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
+            # Обновляем только values-файлы
+            yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
+            yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
 
-          git config user.email "jenkins@local"
-          git config user.name "jenkins-ci"
+            git config user.email "jenkins@local"
+            git config user.name "jenkins-ci"
 
-          git add gitops/values/web-values.yaml gitops/values/api-values.yaml
+            git add gitops/values/web-values.yaml gitops/values/api-values.yaml
+            git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
 
-          git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
-
-          git push origin main
-        '''
+            # Пуш с токеном
+            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/elizadevops/aks-project.git main
+          '''
+        }
       }
     }
-  }
+
 }
