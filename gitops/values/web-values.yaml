@@ -1,6 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/web
-  tag: "v4" # CI/Jenkins будут менять
+  tag: "33" # CI/Jenkins будут менять
   pullPolicy: IfNotPresent
 service:
   type: LoadBalancer
