@@ -86,11 +86,7 @@ pipeline {
     stage('Update GitOps values (tags)') {
       steps {
         sh '''
-          # yq для обновления values
-          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -o /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
+          
           # Обновляем теги образов
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
