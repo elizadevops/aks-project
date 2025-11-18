@@ -86,21 +86,21 @@ pipeline {
     stage('Update GitOps values (tags)') {
       steps {
         sh '''
-          
-          # Обновляем теги образов
+          # Всегда работаем с веткой main, а не detached HEAD
+          git fetch origin
+          git checkout -B main origin/main
+
+          # Обновляем только values-файлы
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
 
           git config user.email "jenkins@local"
           git config user.name "jenkins-ci"
 
-          # Подтягиваем последние изменения, чтобы не было non-fast-forward
-          git pull --rebase origin main || git pull origin main
+          git add gitops/values/web-values.yaml gitops/values/api-values.yaml
 
-          git status
-          git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
+          git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
 
-          # Jenkins должен уметь аутентифицироваться в GitHub (https+token или ssh-ключ)
           git push origin main
         '''
       }
