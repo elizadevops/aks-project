@@ -39,14 +39,20 @@ pipeline {
     stage('Helm & Terraform checks') {
       steps {
         sh '''
+          # Helm lint
           helm lint charts/web   || true
           helm lint charts/api   || true
           helm lint charts/mysql || true
 
+          # ===== mysql-helm-tf =====
           cd mysql-helm-tf
+          terraform init -backend=false -input=false
           terraform fmt -check
           terraform validate || true
+
+          # ===== app-helm-tf =====
           cd ../app-helm-tf
+          terraform init -backend=false -input=false
           terraform fmt -check
           terraform validate || true
         '''
@@ -56,7 +62,7 @@ pipeline {
     stage('Docker build & push') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: 'acr-admin',          // <-- ID кредов в Jenkins
+          credentialsId: 'acr-admin',          // ID кредов ACR в Jenkins
           usernameVariable: 'ACR_USER',
           passwordVariable: 'ACR_PASS'
         )]) {
@@ -76,15 +82,22 @@ pipeline {
     stage('Update GitOps values (tags)') {
       steps {
         sh '''
-          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          # yq для обновления values
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
+          # Обновляем теги образов
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
           yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
 
           git config user.email "jenkins@local"
           git config user.name "jenkins-ci"
+
+          git status
           git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
+
+          # Важно: на этом шаге Jenkins должен иметь доступ к GitHub (ssh ключ или https+token)
           git push
         '''
       }
