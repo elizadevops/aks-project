@@ -1,6 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/web
-  tag: v3
+  tag: v4
   pullPolicy: IfNotPresent
 
 service:
