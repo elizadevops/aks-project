@@ -9,29 +9,28 @@ on:
 env:
   ACR_NAME: elizadevopsacr
   ACR_LOGIN: elizadevopsacr.azurecr.io
-  WEB_IMAGE: ${{ env.ACR_LOGIN }}/web
-  API_IMAGE: ${{ env.ACR_LOGIN }}/api
+  WEB_IMAGE: elizadevopsacr.azurecr.io/web
+  API_IMAGE: elizadevopsacr.azurecr.io/api
 
 jobs:
-  build-test-push:
+  # ============================
+  # 1. Линтеры, тесты, fmt, lint
+  # ============================
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write   # нужно для git commit + push
 
     steps:
-      # 1. Клонируем репозиторий с полной историей (нужно для push)
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. Node.js для web и api
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # 3. Web: lint + tests
+      # Web: lint + tests
       - name: Web - lint & tests
         working-directory: n-web
         run: |
@@ -39,7 +38,7 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # 4. API: lint + tests
+      # API: lint + tests
       - name: API - lint & tests
         working-directory: n-api
         run: |
@@ -47,70 +46,108 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # 5. Terraform
+      # Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # 6. Helm
+      # Helm
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      # 7. yq для правки values.yaml
-      - name: Install yq
-        run: |
-          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -o /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      # 8. Helm lint для всех чартов
+      # Helm lint для всех чартов
       - name: Helm lint
         run: |
           helm lint charts/web || true
           helm lint charts/api || true
           helm lint charts/mysql || true
 
-      # 9. Terraform fmt (mysql-helm-tf)
+      # Terraform fmt (mysql-helm-tf)
       - name: Terraform fmt (mysql-helm-tf)
         working-directory: mysql-helm-tf
         run: |
           terraform fmt -check
 
-      # 10. Terraform fmt (app-helm-tf)
+      # Terraform fmt (app-helm-tf)
       - name: Terraform fmt (app-helm-tf)
         working-directory: app-helm-tf
         run: |
           terraform fmt -check
 
-      # 11. Логин в Azure (вариант с JSON-секретом AZURE_CREDENTIALS)
-      # secrets.AZURE_CREDENTIALS должен содержать JSON сервис-принципала
+  # ============================
+  # 2. Сборка и push Docker-образов
+  # ============================
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.image_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Логин в Azure (через сервис-принципал)
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 12. Логин в ACR
+      # Логин в ACR
       - name: ACR login
         run: az acr login --name $ACR_NAME
 
-      # 13. Сборка и push Docker-образов web и api
-      - name: Build & push images
+      # Устанавливаем тег образа и сохраняем в outputs job'а
+      - name: Set image tag
+        id: set-tag
         run: |
           IMAGE_TAG=${GITHUB_RUN_NUMBER}
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-          docker build -t $WEB_IMAGE:$IMAGE_TAG ./n-web
-          docker build -t $API_IMAGE:$IMAGE_TAG ./n-api
-
-          docker push $WEB_IMAGE:$IMAGE_TAG
-          docker push $API_IMAGE:$IMAGE_TAG
-
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-      # 14. Обновляем GitOps values, чтобы ArgoCD задеплоил новый тег
-      - name: Update GitOps values
+      # Сборка и push Docker-образов web и api
+      - name: Build & push images
         run: |
           echo "Using image tag: ${IMAGE_TAG}"
+
+          docker build -t $WEB_IMAGE:${IMAGE_TAG} ./n-web
+          docker build -t $API_IMAGE:${IMAGE_TAG} ./n-api
+
+          docker push $WEB_IMAGE:${IMAGE_TAG}
+          docker push $API_IMAGE:${IMAGE_TAG}
+
+  # ============================
+  # 3. Обновление GitOps values + git push
+  # ============================
+  update-gitops:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write   # нужно для git commit + push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # yq для правки values.yaml
+      - name: Install yq
+        run: |
+          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update GitOps values
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+        run: |
+          echo "Using image tag from build-and-push job: ${IMAGE_TAG}"
 
           # Обновляем теги образов в GitOps values
           yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
@@ -118,7 +155,7 @@ jobs:
 
           git config user.email "github-actions@local"
           git config user.name "github-actions"
-          git status
 
+          git status
           git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
           git push
