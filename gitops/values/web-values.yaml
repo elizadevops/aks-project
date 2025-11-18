@@ -1,10 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/web
-<<<<<<< HEAD
-  tag: "31" # CI/Jenkins будут менять
-=======
   tag: "v4" # CI/Jenkins будут менять
->>>>>>> d857add (Point web to image tag v4)
   pullPolicy: IfNotPresent
 service:
   type: LoadBalancer
