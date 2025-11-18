@@ -61,11 +61,13 @@ pipeline {
 
     stage('Docker build & push') {
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'acr-admin',          // ID кредов ACR в Jenkins
-          usernameVariable: 'ACR_USER',
-          passwordVariable: 'ACR_PASS'
-        )]) {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'acr-elizadevopsacr',
+            usernameVariable: 'ACR_USER',
+            passwordVariable: 'ACR_PASS'
+          )
+        ]) {
           sh '''
             echo "$ACR_PASS" | docker login ${ACR_LOGIN} -u "$ACR_USER" --password-stdin
 
@@ -74,6 +76,8 @@ pipeline {
 
             docker push ${WEB_IMAGE}:${IMAGE_TAG}
             docker push ${API_IMAGE}:${IMAGE_TAG}
+
+            docker logout ${ACR_LOGIN} || true
           '''
         }
       }
@@ -94,11 +98,14 @@ pipeline {
           git config user.email "jenkins@local"
           git config user.name "jenkins-ci"
 
+          # Подтягиваем последние изменения, чтобы не было non-fast-forward
+          git pull --rebase origin main || git pull origin main
+
           git status
           git commit -am "Update images to tag ${IMAGE_TAG}" || echo "No changes"
 
-          # Важно: на этом шаге Jenkins должен иметь доступ к GitHub (ssh ключ или https+token)
-          git push
+          # Jenkins должен уметь аутентифицироваться в GitHub (https+token или ssh-ключ)
+          git push origin main
         '''
       }
     }
