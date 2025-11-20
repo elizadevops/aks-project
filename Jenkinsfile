@@ -19,19 +19,21 @@ pipeline {
 
     stage('Node tests (web & api)') {
       steps {
-        dir('n-web') {
-          sh '''
-            npm ci
-            npm run lint || true
-            npm test || true
-          '''
-        }
-        dir('n-api') {
-          sh '''
-            npm ci
-            npm run lint || true
-            npm test || true
-          '''
+        timeout(time: 3, unit: 'MINUTES') {
+          dir('n-web') {
+            sh '''
+              npm ci
+              npm run lint || true
+              npm test || true
+            '''
+          }
+          dir('n-api') {
+            sh '''
+              npm ci
+              npm run lint || true
+              npm test || true
+            '''
+          }
         }
       }
     }
@@ -113,5 +115,5 @@ pipeline {
       }
     }
 
-  } // <-- конец блока stages
-}   // <-- конец pipeline
+  } // конец stages
+}   // конец pipeline
