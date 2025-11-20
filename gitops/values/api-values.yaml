@@ -1,6 +1,6 @@
 image:
   repository: elizadevopsacr.azurecr.io/api
-  tag: "61" # CI/Jenkins будут менять
+  tag: "62" # CI/Jenkins будут менять
   pullPolicy: IfNotPresent
 service:
   type: ClusterIP
