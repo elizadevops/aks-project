@@ -103,7 +103,11 @@ pipeline {
     stage('Update GitOps values (tags)') {
       steps {
         withCredentials([
-          string(credentialsId: 'github-elizadevops-token', variable: 'GIT_TOKEN')
+          usernamePassword(
+            credentialsId: 'github-elizadevops-token',
+            usernameVariable: 'GIT_USER',
+            passwordVariable: 'GIT_TOKEN'
+          )
         ]) {
           sh '''
             git fetch origin
