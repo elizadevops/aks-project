@@ -1,16 +1,14 @@
 pipeline {
   agent any
 
-  tools {
-    SonarQubeScanner 'sonarscanner'
-  }
-
   environment {
-    ACR_NAME  = 'elizadevopsacr'
+    ACR_NAME  = 'elizedevopsacr'
     ACR_LOGIN = 'elizadevopsacr.azurecr.io'
     WEB_IMAGE = "${ACR_LOGIN}/web"
     API_IMAGE = "${ACR_LOGIN}/api"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
+
+    // SonarCloud token из Credentials (Secret text, ID = sonarcloud-token)
     SONAR_TOKEN = credentials('sonarcloud-token')
   }
 
@@ -81,20 +79,22 @@ pipeline {
       }
     }
 
-    // 🔹 НОВЫЙ STAGE: анализ кода в SonarCloud
+    // 🔹 SonarCloud анализ
     stage('SonarCloud Analysis') {
       environment {
-        // немного ограничим память для сканера
         SONAR_SCANNER_OPTS = '-Xmx512m'
       }
       steps {
-        // "sonarcloud" — имя сервера в Configure System → SonarQube servers
         withSonarQubeEnv('sonarcloud') {
-          sh '''
-            echo "Running SonarCloud analysis..."
-            sonar-scanner \
-              -Dsonar.login=${SONAR_TOKEN}
-          '''
+          script {
+            // "sonarscanner" — это имя сканера в Global Tool Configuration
+            def scannerHome = tool 'sonarscanner'
+            sh """
+              echo "Running SonarCloud analysis..."
+              "${scannerHome}/bin/sonar-scanner" \
+                -Dsonar.login=$SONAR_TOKEN
+            """
+          }
         }
       }
     }
