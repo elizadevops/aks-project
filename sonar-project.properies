@@ -1,5 +1,5 @@
 sonar.projectKey=aks-project
-sonar.organization=elizadevops   # только имя, без URL!
+sonar.organization=elizadevops
 
 sonar.projectName=aks-project
 sonar.projectVersion=1.0

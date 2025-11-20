@@ -1,9 +1,8 @@
 pipeline {
   agent any
 
-  // говорим Jenkins, что будем использовать SonarQube Scanner с именем "sonarscanner"
   tools {
-    sonarQube 'sonarscanner'
+    SonarQubeScanner 'sonarscanner'
   }
 
   environment {
@@ -12,8 +11,6 @@ pipeline {
     WEB_IMAGE = "${ACR_LOGIN}/web"
     API_IMAGE = "${ACR_LOGIN}/api"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
-
-    // SonarCloud token из Credentials (Secret text, ID = sonarcloud-token)
     SONAR_TOKEN = credentials('sonarcloud-token')
   }
 
