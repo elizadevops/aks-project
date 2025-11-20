@@ -118,8 +118,8 @@ pipeline {
             git add gitops/values/web-values.yaml gitops/values/api-values.yaml
             git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
 
-            # В username можно не указывать ничего — токен идёт до @
-            git push https://$GIT_TOKEN@github.com/elizadevops/aks-project.git main
+            # здесь username = x-access-token, пароль = PAT
+            git push https://x-access-token:${GIT_TOKEN}@github.com/elizadevops/aks-project.git main
           '''
         }
       }
