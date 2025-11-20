@@ -1,12 +1,20 @@
 pipeline {
   agent any
 
+  // говорим Jenkins, что будем использовать SonarQube Scanner с именем "sonarscanner"
+  tools {
+    sonarQube 'sonarscanner'
+  }
+
   environment {
     ACR_NAME  = 'elizadevopsacr'
     ACR_LOGIN = 'elizadevopsacr.azurecr.io'
     WEB_IMAGE = "${ACR_LOGIN}/web"
     API_IMAGE = "${ACR_LOGIN}/api"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
+
+    // SonarCloud token из Credentials (Secret text, ID = sonarcloud-token)
+    SONAR_TOKEN = credentials('sonarcloud-token')
   }
 
   stages {
@@ -76,6 +84,24 @@ pipeline {
       }
     }
 
+    // 🔹 НОВЫЙ STAGE: анализ кода в SonarCloud
+    stage('SonarCloud Analysis') {
+      environment {
+        // немного ограничим память для сканера
+        SONAR_SCANNER_OPTS = '-Xmx512m'
+      }
+      steps {
+        // "sonarcloud" — имя сервера в Configure System → SonarQube servers
+        withSonarQubeEnv('sonarcloud') {
+          sh '''
+            echo "Running SonarCloud analysis..."
+            sonar-scanner \
+              -Dsonar.login=${SONAR_TOKEN}
+          '''
+        }
+      }
+    }
+
     stage('Docker build & push') {
       steps {
         withCredentials([
@@ -122,12 +148,11 @@ pipeline {
             git add gitops/values/web-values.yaml gitops/values/api-values.yaml
             git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
 
-            # здесь username = x-access-token, пароль = PAT
             git push https://x-access-token:${GIT_TOKEN}@github.com/elizadevops/aks-project.git main
           '''
         }
       }
     }
 
-  } // <-- конец блока stages
-}   // <-- конец pipeline
+  } // конец stages
+}   // конец pipeline
