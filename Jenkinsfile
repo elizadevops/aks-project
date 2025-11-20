@@ -103,17 +103,12 @@ pipeline {
     stage('Update GitOps values (tags)') {
       steps {
         withCredentials([
-          usernamePassword(
-            credentialsId: 'acr-elizadevopsacr',
-            usernameVariable: 'GIT_USER',
-            passwordVariable: 'GIT_TOKEN'
-          )
+          string(credentialsId: 'github-elizadevops-token', variable: 'GIT_TOKEN')
         ]) {
           sh '''
             git fetch origin
             git checkout -B main origin/main
 
-            # Обновляем только values-файлы
             yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
             yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/api-values.yaml
 
@@ -123,8 +118,8 @@ pipeline {
             git add gitops/values/web-values.yaml gitops/values/api-values.yaml
             git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes to commit"
 
-            # Пуш с токеном
-            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/elizadevops/aks-project.git main
+            # В username можно не указывать ничего — токен идёт до @
+            git push https://$GIT_TOKEN@github.com/elizadevops/aks-project.git main
           '''
         }
       }
