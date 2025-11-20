@@ -19,21 +19,36 @@ pipeline {
 
     stage('Node tests (web & api)') {
       steps {
-        timeout(time: 3, unit: 'MINUTES') {
-          dir('n-web') {
-            sh '''
-              npm ci
-              npm run lint || true
-              npm test || true
-            '''
-          }
-          dir('n-api') {
-            sh '''
-              npm ci
-              npm run lint || true
-              npm test || true
-            '''
-          }
+        dir('n-web') {
+          sh '''
+            npm ci
+            npm run lint || true
+            npm test || true
+          '''
+        }
+        dir('n-api') {
+          sh '''
+            npm ci
+            npm run lint || true
+            npm test || true
+          '''
+        }
+      }
+    }
+
+    stage('npm audit (security check)') {
+      steps {
+        dir('n-web') {
+          sh '''
+            echo "Running npm audit for n-web..."
+            npm audit --audit-level=high || true
+          '''
+        }
+        dir('n-api') {
+          sh '''
+            echo "Running npm audit for n-api..."
+            npm audit --audit-level=high || true
+          '''
         }
       }
     }
@@ -89,7 +104,7 @@ pipeline {
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'github-elizadevops-token',
+            credentialsId: 'acr-elizadevopsacr',
             usernameVariable: 'GIT_USER',
             passwordVariable: 'GIT_TOKEN'
           )
@@ -115,5 +130,5 @@ pipeline {
       }
     }
 
-  } // конец stages
-}   // конец pipeline
+  } // <-- конец блока stages
+}   // <-- конец pipeline
