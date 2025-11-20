@@ -1,5 +1,5 @@
-sonar.projectKey=aks-project          # Тот же key, что в SonarCloud
-sonar.organization=https://sonarcloud.io/organizations/elizadevops
+sonar.projectKey=aks-project
+sonar.organization=elizadevops   # только имя, без URL!
 
 sonar.projectName=aks-project
 sonar.projectVersion=1.0
