@@ -67,6 +67,17 @@ pipeline {
       }
     }
 
+    // 🔹 Trivy: IaC config scan (Terraform + Helm + K8s манифесты)
+    stage('Trivy IaC config scan') {
+      steps {
+        sh '''
+          echo "Running Trivy IaC config scan (Terraform + Helm + K8s)..."
+          # Анализ инфраструктурных конфигов на ошибки безопасности
+          trivy config --severity HIGH,CRITICAL --exit-code 0 .
+        '''
+      }
+    }
+
     stage('Helm & Terraform checks') {
       steps {
         sh '''
@@ -114,12 +125,25 @@ pipeline {
       }
     }
 
+    // 🔹 SonarCloud Quality Gate — ломаем пайплайн, если качество плохое
+    stage('SonarCloud Quality Gate') {
+      steps {
+        timeout(time: 3, unit: 'MINUTES') {
+          script {
+            def qg = waitForQualityGate()
+            if (qg.status != 'OK') {
+              error "Pipeline aborted due to SonarCloud quality gate failure: ${qg.status}"
+            }
+          }
+        }
+      }
+    }
 
     stage('Docker build & push') {
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'acr-elizadevopsacr',
+            credentialsId: 'acr-elizedevopsacr',
             usernameVariable: 'ACR_USER',
             passwordVariable: 'ACR_PASS'
           )
@@ -155,13 +179,13 @@ pipeline {
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'github-elizadevops-token',
+            credentialsId: 'github-elizedevops-token',
             usernameVariable: 'GIT_USER',
             passwordVariable: 'GIT_TOKEN'
           )
         ]) {
           sh '''
-            git fetch origin
+            git fetch origin 
             git checkout -B main origin/main
 
             yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
