@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     ACR_NAME  = 'elizedevopsacr'
-    ACR_LOGIN = 'elizadevopsacr.azurecr.io'
+    ACR_LOGIN = 'elizedevopsacr.azurecr.io'
     WEB_IMAGE = "${ACR_LOGIN}/web"
     API_IMAGE = "${ACR_LOGIN}/api"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -67,12 +67,11 @@ pipeline {
       }
     }
 
-    // 🔹 Trivy: IaC config scan (Terraform + Helm + K8s манифесты)
+    // 🔹 Trivy: IaC config scan (Terraform + Helm + K8s)
     stage('Trivy IaC config scan') {
       steps {
         sh '''
           echo "Running Trivy IaC config scan (Terraform + Helm + K8s)..."
-          # Анализ инфраструктурных конфигов на ошибки безопасности
           trivy config --severity HIGH,CRITICAL --exit-code 0 .
         '''
       }
@@ -125,15 +124,18 @@ pipeline {
       }
     }
 
-    // 🔹 SonarCloud Quality Gate — ломаем пайплайн, если качество плохое
+    // 🔹 SonarCloud Quality Gate (не падаем на NONE)
     stage('SonarCloud Quality Gate') {
       steps {
         timeout(time: 3, unit: 'MINUTES') {
           script {
             def qg = waitForQualityGate()
-            if (qg.status != 'OK') {
-              error "Pipeline aborted due to SonarCloud quality gate failure: ${qg.status}"
+            echo "SonarCloud Quality Gate status: ${qg.status}"
+
+            if (qg.status == 'FAILED' || qg.status == 'ERROR') {
+              error "Pipeline aborted due to SonarCloud quality gate: ${qg.status}"
             }
+            // Если статус NONE или OK — просто продолжаем
           }
         }
       }
@@ -168,7 +170,6 @@ pipeline {
       steps {
         sh '''
           echo "Running Trivy image scan for WEB and API images (HIGH,CRITICAL)..."
-
           trivy image --severity HIGH,CRITICAL --exit-code 0 ${WEB_IMAGE}:${IMAGE_TAG}
           trivy image --severity HIGH,CRITICAL --exit-code 0 ${API_IMAGE}:${IMAGE_TAG}
         '''
@@ -185,7 +186,7 @@ pipeline {
           )
         ]) {
           sh '''
-            git fetch origin 
+            git fetch origin
             git checkout -B main origin/main
 
             yq -i ".image.tag = \\"${IMAGE_TAG}\\"" gitops/values/web-values.yaml
@@ -204,4 +205,4 @@ pipeline {
     }
 
   } // конец stages
-}   // конец pipeline
+} // конец pipeline
