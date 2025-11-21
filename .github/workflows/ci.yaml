@@ -121,7 +121,7 @@ jobs:
           hadolint n-web/Dockerfile || true
           hadolint n-api/Dockerfile || true
 
-      # ========== Kubernetes manifests validation (kubeconform вместо kubeval) ==========
+      # ========== Kubernetes manifests validation (kubeconform) ==========
       - name: Install kubeconform
         run: |
           curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
@@ -139,16 +139,14 @@ jobs:
             echo "No kubernetes/ directory, skipping kubeconform"
           fi
 
-      # ========== Terrascan ==========
-      - name: Install Terrascan
-        run: |
-          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_linux_amd64.tar.gz \
-            -o terrascan.tar.gz
-          tar -xzf terrascan.tar.gz
-          sudo install terrascan /usr/local/bin/terrascan
-
-      - name: Terrascan scan (Azure)
-        run: terrascan scan -t azure || true
+      # ========== Terrascan (через официальный GitHub Action) ==========
+      - name: Terrascan scan (Terraform / Azure)
+        uses: tenable/terrascan-action@v1
+        with:
+          iac_type: terraform
+          iac_dir: .
+          # можно фильтровать политику, но пока оставим по умолчанию
+          only_warn: true
 
       # ========== Trivy FS scan ==========
       - name: Trivy FS scan (repo)
