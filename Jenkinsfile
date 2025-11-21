@@ -56,6 +56,17 @@ pipeline {
       }
     }
 
+    // 🔹 Trivy: файловый скан (репозиторий, зависимости, конфиги)
+    stage('Trivy FS scan') {
+      steps {
+        sh '''
+          echo "Running Trivy filesystem scan (HIGH,CRITICAL)..."
+          # Скан всего репозитория. --exit-code 0 чтобы не падал pipeline, но находил уязвимости.
+          trivy fs --severity HIGH,CRITICAL --exit-code 0 .
+        '''
+      }
+    }
+
     stage('Helm & Terraform checks') {
       steps {
         sh '''
@@ -125,6 +136,18 @@ pipeline {
             docker logout ${ACR_LOGIN} || true
           '''
         }
+      }
+    }
+
+    // 🔹 Trivy: скан Docker-образов web и api
+    stage('Trivy Image scan') {
+      steps {
+        sh '''
+          echo "Running Trivy image scan for WEB and API images (HIGH,CRITICAL)..."
+
+          trivy image --severity HIGH,CRITICAL --exit-code 0 ${WEB_IMAGE}:${IMAGE_TAG}
+          trivy image --severity HIGH,CRITICAL --exit-code 0 ${API_IMAGE}:${IMAGE_TAG}
+        '''
       }
     }
 
