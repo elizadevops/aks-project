@@ -8,13 +8,13 @@ on:
 # Глобальные переменные окружения
 env:
   ACR_NAME: elizadevopsacr
-  ACR_LOGIN: elizadevopsacr.azurecr.io
-  WEB_IMAGE: elizadevopsacr.azurecr.io/web
-  API_IMAGE: elizadevopsacr.azurecr.io/api
+  ACR_LOGIN: elizedevopsacr.azurecr.io
+  WEB_IMAGE: elizedevopsacr.azurecr.io/web
+  API_IMAGE: elizedevopsacr.azurecr.io/api
 
 jobs:
   # ============================
-  # 1. Линтеры, тесты, fmt, lint
+  # 1. Линтеры, тесты, fmt, lint, security
   # ============================
   test:
     runs-on: ubuntu-latest
@@ -23,14 +23,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # нужен полный git-лог для rebase в других job'ах
+          fetch-depth: 0   # нужен полный git-лог
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # Web: lint + tests
+      # ========== Node.js: lint + tests ==========
       - name: Web - lint & tests
         working-directory: n-web
         run: |
@@ -38,7 +38,6 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # API: lint + tests
       - name: API - lint & tests
         working-directory: n-api
         run: |
@@ -46,34 +45,121 @@ jobs:
           npm run lint || true
           npm test || true
 
-      # Terraform
+      # ========== Node.js: security & quality ==========
+      - name: Web - npm audit
+        working-directory: n-web
+        run: |
+          npm audit --audit-level=moderate || true
+
+      - name: API - npm audit
+        working-directory: n-api
+        run: |
+          npm audit --audit-level=moderate || true
+
+      - name: Web - check outdated dependencies
+        working-directory: n-web
+        run: npm outdated || true
+
+      - name: API - check outdated dependencies
+        working-directory: n-api
+        run: npm outdated || true
+
+      # ========== Prettier форматирование ==========
+      - name: Prettier check (web)
+        working-directory: n-web
+        run: npx prettier --check . || true
+
+      - name: Prettier check (api)
+        working-directory: n-api
+        run: npx prettier --check . || true
+
+      # ========== Terraform ==========
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # Helm
+      - name: Terraform fmt (mysql-helm-tf)
+        working-directory: mysql-helm-tf
+        run: terraform fmt -check
+
+      - name: Terraform fmt (app-helm-tf)
+        working-directory: app-helm-tf
+        run: terraform fmt -check
+
+      - name: Terraform validate (mysql-helm-tf)
+        working-directory: mysql-helm-tf
+        run: terraform validate || true
+
+      - name: Terraform validate (app-helm-tf)
+        working-directory: app-helm-tf
+        run: terraform validate || true
+
+      # ========== Helm ==========
       - name: Setup Helm
         uses: azure/setup-helm@v4
 
-      # Helm lint для всех чартов
       - name: Helm lint
         run: |
-          helm lint charts/web || true
-          helm lint charts/api || true
+          helm lint charts/web   || true
+          helm lint charts/api   || true
           helm lint charts/mysql || true
 
-      # Terraform fmt (mysql-helm-tf)
-      - name: Terraform fmt (mysql-helm-tf)
-        working-directory: mysql-helm-tf
+      - name: Helm template dry-run
         run: |
-          terraform fmt -check
+          helm template charts/web   || true
+          helm template charts/api   || true
+          helm template charts/mysql || true
 
-      # Terraform fmt (app-helm-tf)
-      - name: Terraform fmt (app-helm-tf)
-        working-directory: app-helm-tf
+      # ========== Dockerfile lint (hadolint) ==========
+      - name: Install hadolint
         run: |
-          terraform fmt -check
+          sudo wget -O /usr/local/bin/hadolint \
+            https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          sudo chmod +x /usr/local/bin/hadolint
+
+      - name: Lint Dockerfiles
+        run: |
+          hadolint n-web/Dockerfile || true
+          hadolint n-api/Dockerfile || true
+
+      # ========== Kubernetes YAML валидация (kubeval) ==========
+      - name: Install kubeval
+        run: |
+          sudo wget -O /usr/local/bin/kubeval \
+            https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64
+          sudo chmod +x /usr/local/bin/kubeval
+
+      - name: Validate Kubernetes YAML (if kubernetes/ exists)
+        run: |
+          if [ -d "kubernetes" ]; then
+            kubeval kubernetes/*.yaml || true
+          else
+            echo "No kubernetes/ directory, skipping kubeval"
+          fi
+
+      # ========== Terrascan (security для Terraform) ==========
+      - name: Install Terrascan
+        run: |
+          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_linux_amd64.tar.gz \
+            -o terrascan.tar.gz
+          tar -xzf terrascan.tar.gz
+          sudo install terrascan /usr/local/bin/terrascan
+
+      - name: Terrascan scan (Azure / Terraform)
+        run: |
+          terrascan scan -t azure || true
+
+      # ========== Trivy FS scan (код + зависимости + IaC) ==========
+      - name: Trivy FS scan (repo)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
 
   # ============================
   # 2. Сборка и push Docker-образов
@@ -91,7 +177,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # пусть тоже будет полный git, на всякий случай
+          fetch-depth: 0
 
       # Логин в Azure (через сервис-принципал, JSON в AZURE_CREDENTIALS)
       - name: Azure login
@@ -121,6 +207,28 @@ jobs:
 
           docker push $WEB_IMAGE:${IMAGE_TAG}
           docker push $API_IMAGE:${IMAGE_TAG}
+
+      # Trivy image scan (web)
+      - name: Trivy scan web image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.WEB_IMAGE }}:${{ env.IMAGE_TAG }}
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      # Trivy image scan (api)
+      - name: Trivy scan api image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.API_IMAGE }}:${{ env.IMAGE_TAG }}
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
 
   # ============================
   # 3. Обновление GitOps values + git push
