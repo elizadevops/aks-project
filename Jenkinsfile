@@ -2,8 +2,8 @@ pipeline {
   agent any
 
   environment {
-    ACR_NAME  = 'elizedevopsacr'
-    ACR_LOGIN = 'elizedevopsacr.azurecr.io'
+    ACR_NAME  = 'elizadevopsacr'
+    ACR_LOGIN = 'elizadevopsacr.azurecr.io'
     WEB_IMAGE = "${ACR_LOGIN}/web"
     API_IMAGE = "${ACR_LOGIN}/api"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -145,7 +145,7 @@ pipeline {
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'acr-elizedevopsacr',
+            credentialsId: 'acr-elizadevopsacr',
             usernameVariable: 'ACR_USER',
             passwordVariable: 'ACR_PASS'
           )
@@ -180,7 +180,7 @@ pipeline {
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'github-elizedevops-token',
+            credentialsId: 'github-elizadevops-token',
             usernameVariable: 'GIT_USER',
             passwordVariable: 'GIT_TOKEN'
           )
