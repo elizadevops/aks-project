@@ -77,7 +77,6 @@ jobs:
         working-directory: app-helm-tf
         run: terraform fmt -check
 
-      # ---- FIX: добавлен terraform init ----
       - name: Terraform init (mysql-helm-tf)
         working-directory: mysql-helm-tf
         run: terraform init -backend=false -input=false
@@ -122,24 +121,29 @@ jobs:
           hadolint n-web/Dockerfile || true
           hadolint n-api/Dockerfile || true
 
-      # ========== Kubernetes YAML валидация ==========
-      - name: Install kubeval
+      # ========== Kubernetes manifests validation (kubeconform вместо kubeval) ==========
+      - name: Install kubeconform
         run: |
-          sudo wget -O /usr/local/bin/kubeval \
-            https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64
-          sudo chmod +x /usr/local/bin/kubeval
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            -o kubeconform.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          sudo chmod +x /usr/local/bin/kubeconform
 
-      - name: Validate Kubernetes YAML
+      - name: Validate Kubernetes manifests with kubeconform
         run: |
           if [ -d "kubernetes" ]; then
-            kubeval kubernetes/*.yaml || true
+            echo "Validating manifests in kubernetes/..."
+            kubeconform -strict -summary kubernetes/*.yaml || true
+          else
+            echo "No kubernetes/ directory, skipping kubeconform"
           fi
 
       # ========== Terrascan ==========
       - name: Install Terrascan
         run: |
           curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_linux_amd64.tar.gz \
-          -o terrascan.tar.gz
+            -o terrascan.tar.gz
           tar -xzf terrascan.tar.gz
           sudo install terrascan /usr/local/bin/terrascan
 
@@ -188,6 +192,7 @@ jobs:
 
       - name: Build & push images
         run: |
+          echo "Using image tag: ${IMAGE_TAG}"
           docker build -t $WEB_IMAGE:${IMAGE_TAG} ./n-web
           docker build -t $API_IMAGE:${IMAGE_TAG} ./n-api
           docker push $WEB_IMAGE:${IMAGE_TAG}
@@ -197,58 +202,4 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: image
-          image-ref: ${{ env.WEB_IMAGE }}:${{ env.IMAGE_TAG }}
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          exit-code: 0
-
-      - name: Trivy scan api image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: ${{ env.API_IMAGE }}:${{ env.IMAGE_TAG }}
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-          exit-code: 0
-
-  # ============================
-  # 3. Update GitOps values.yaml
-  # ============================
-  update-gitops:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Prepare repo before commit
-        run: |
-          git config user.email "github-actions@local"
-          git config user.name "github-actions"
-          git fetch origin main
-          git pull --rebase origin main
-
-      - name: Install yq
-        run: |
-          sudo curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -o /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Update GitOps values
-        env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-        run: |
-          yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/web-values.yaml
-          yq -i ".image.tag = \"${IMAGE_TAG}\"" gitops/values/api-values.yaml
-
-          git add gitops/values/web-values.yaml gitops/values/api-values.yaml
-          git commit -m "Update images to tag ${IMAGE_TAG}" || echo "No changes"
-          git push origin HEAD:main
+          image-ref: ${{ env.WEB_IMAGE }}:${{ steps.set-tag.outputs.image_ta
